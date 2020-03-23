@@ -70,6 +70,7 @@ func encrypt(plaintext []byte,key_enc []byte, key_mac []byte, outputfile string)
 	block_num++
 	remain = 16-remain
 	padding := byte(remain)
+	fmt.Println("padding",padding)
 	for i := 0; i < remain; i++ {
 		plaintext = append(plaintext, padding)
 	}
@@ -85,20 +86,16 @@ func encrypt(plaintext []byte,key_enc []byte, key_mac []byte, outputfile string)
 	block_cipher := make([]byte,16)
 	ciphertext := make([]byte,16)
 	//encrypt first block
-	xored_cipher  = xor(plaintext[0:16],iv)
-	c.Encrypt(block_cipher,xored_cipher)
-	for i:=0; i<len(block_cipher); i++{
-		ciphertext[i] = block_cipher[i]
-	}
+	copy(ciphertext,iv)
 
 	for i:=0; i < block_num; i++{
-		for j:=0; j<len(block_cipher); j++{
-			iv[j] = block_cipher[j]
-		}
 		xored_cipher  = xor(plaintext[16*i:16*(i+1)],iv)
 		c.Encrypt(block_cipher,xored_cipher)
 		for k:=0; k<len(block_cipher); k++{
 			ciphertext = append(ciphertext, block_cipher[k])
+		}
+		for j:=0; j<len(block_cipher); j++{
+			iv[j] = block_cipher[j]
 		}
 
 	}
@@ -107,7 +104,7 @@ func encrypt(plaintext []byte,key_enc []byte, key_mac []byte, outputfile string)
 	if err_write !=nil{
 		fmt.Println("Can not write to file!")
 	}
-	fmt.Println(ciphertext)
+	fmt.Println("ciphertext:",ciphertext)
 	return
 
 
@@ -132,26 +129,39 @@ func decrypt(ciphertext []byte,iv []byte,key_enc []byte, key_mac []byte, outputf
 	text_with_iv = xor(text_with_iv,iv)
 	copy(text_with_padding,text_with_iv)
 	for i:=1;i<block_num;i++{
+		copy(iv,ciphertext[(i-1)*16:i*16])
 		c.Decrypt(text_with_iv,ciphertext[i*16:(i+1)*16])
 		text_with_iv = xor(text_with_iv,iv)
-		for j:=1;j<len(text_with_iv);j++{
+		for j:=0;j<len(text_with_iv);j++{
 			text_with_padding = append(text_with_padding,text_with_iv[j])
 		}
 	}
+	fmt.Println("textwithpadding:",string(text_with_padding))
 	//strip padding
 	padding := text_with_padding[len(text_with_padding)-1]
+	fmt.Println("padding:",padding)
 	for i:= (len(text_with_padding)-int(padding));i<(len(text_with_padding));i++{
-		//if text_with_padding[i]!=padding{
-		//	fmt.Println("Invalid padding")
-		//	os.Exit(1)
-		//}
+		if text_with_padding[i]!=padding{
+			fmt.Println("INVALID PADDING")
+			os.Exit(1)
+		}
 	}
 	text_with_mac := make([]byte,len(text_with_padding)-int(padding))
 	copy(text_with_mac,text_with_padding[0:len(text_with_padding)-int(padding)])
+	fmt.Println("text_with_mac:",string(text_with_mac))
 	mac := make([]byte,32)
 	copy(mac,text_with_mac[len(text_with_mac)-32:])
 	plaintext := make([]byte,len(text_with_mac)-32)
 	copy(plaintext,text_with_mac[0:len(text_with_mac)-32])
+	verify_mac := hmac(key_mac,plaintext)
+	fmt.Println("mac:",mac)
+	fmt.Println("verify mac:",verify_mac)
+	for i:=0;i<len(mac);i++{
+		if mac[i]!=verify_mac[i]{
+			fmt.Println("INVALID MAC")
+			os.Exit(1)
+		}
+	}
 	fmt.Println(string(plaintext))
 	err_write := ioutil.WriteFile(outputfile, plaintext, 0777)
 	if err_write !=nil{
