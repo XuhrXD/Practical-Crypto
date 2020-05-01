@@ -70,7 +70,6 @@ func encrypt(plaintext []byte,key_enc []byte, key_mac []byte, outputfile string)
 	block_num++
 	remain = 16-remain
 	padding := byte(remain)
-	fmt.Println("padding",padding)
 	for i := 0; i < remain; i++ {
 		plaintext = append(plaintext, padding)
 	}
@@ -136,10 +135,10 @@ func decrypt(ciphertext []byte,iv []byte,key_enc []byte, key_mac []byte, outputf
 			text_with_padding = append(text_with_padding,text_with_iv[j])
 		}
 	}
-	fmt.Println("textwithpadding:",string(text_with_padding))
+	//fmt.Println("textwithpadding:",string(text_with_padding))
 	//strip padding
 	padding := text_with_padding[len(text_with_padding)-1]
-	fmt.Println("padding:",padding)
+	//fmt.Println("padding:",padding)
 	for i:= (len(text_with_padding)-int(padding));i<(len(text_with_padding));i++{
 		if text_with_padding[i]!=padding{
 			fmt.Println("INVALID PADDING")
@@ -148,21 +147,23 @@ func decrypt(ciphertext []byte,iv []byte,key_enc []byte, key_mac []byte, outputf
 	}
 	text_with_mac := make([]byte,len(text_with_padding)-int(padding))
 	copy(text_with_mac,text_with_padding[0:len(text_with_padding)-int(padding)])
-	fmt.Println("text_with_mac:",string(text_with_mac))
+	//fmt.Println("text_with_mac:",string(text_with_mac))
 	mac := make([]byte,32)
 	copy(mac,text_with_mac[len(text_with_mac)-32:])
 	plaintext := make([]byte,len(text_with_mac)-32)
 	copy(plaintext,text_with_mac[0:len(text_with_mac)-32])
 	verify_mac := hmac(key_mac,plaintext)
-	fmt.Println("mac:",mac)
-	fmt.Println("verify mac:",verify_mac)
+	//fmt.Println("mac:",mac)
+	//fmt.Println("verify mac:",verify_mac)
 	for i:=0;i<len(mac);i++{
 		if mac[i]!=verify_mac[i]{
 			fmt.Println("INVALID MAC")
 			os.Exit(1)
 		}
 	}
-	fmt.Println(string(plaintext))
+	fmt.Println("SUCCESS")
+	fmt.Println("String:",string(plaintext))
+	fmt.Println("Byte:",plaintext)
 	err_write := ioutil.WriteFile(outputfile, plaintext, 0777)
 	if err_write !=nil{
 		fmt.Println("Can not write to file!")
@@ -172,36 +173,36 @@ func decrypt(ciphertext []byte,iv []byte,key_enc []byte, key_mac []byte, outputf
 }
 
 func main() {
-	if len(os.Args) != 9 {
+	if len(os.Args) != 8 {
 		fmt.Println("Invalid input argument")
 		fmt.Println("Expected input is: encrypt-auth <mode> -k <32-byte key in hexadecimal> -i <input file> -o <outputfile>")
 		os.Exit(1)
 	}
 
-	if len(os.Args[4]) != 64 {
+	if len(os.Args[3]) != 64 {
 		fmt.Println("key length error")
 		os.Exit(1)
 	}
 
-	key := os.Args[4]
+	key := os.Args[3]
 	enc_str := key[0:32]
 	mac_str := key[32:64]
 	key_enc, _ := hex.DecodeString(enc_str)
 	key_mac, _ := hex.DecodeString(mac_str)
-	if os.Args[2] == "encrypt" {
-		plaintext, _ := ioutil.ReadFile(os.Args[6])
-		outputfile := os.Args[8]
+	if os.Args[1] == "encrypt" {
+		plaintext, _ := ioutil.ReadFile(os.Args[5])
+		outputfile := os.Args[7]
 		//fmt.Println(plaintext)
 		encrypt(plaintext, key_enc, key_mac, outputfile)
 		return
-	} else if os.Args[2] == "decrypt" {
-		rawdata, _ := ioutil.ReadFile(os.Args[6])
+	} else if os.Args[1] == "decrypt" {
+		rawdata, _ := ioutil.ReadFile(os.Args[5])
 		iv := make([]byte, 16)
 		iv = rawdata[0:16]
 		ciphertext := make([]byte, len(rawdata)-16)
 		ciphertext = rawdata[16:]
-		outputfile := os.Args[8]
-		fmt.Println("ciphertext:",ciphertext)
+		outputfile := os.Args[7]
+		//fmt.Println("ciphertext:",ciphertext)
 		decrypt(ciphertext, iv, key_enc, key_mac, outputfile)
 		return
 	}
